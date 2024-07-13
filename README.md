@@ -7,13 +7,20 @@
 ```
 // client
 dotnet new blazorwasm
+dotnet add package Microsoft.AspNetCore.Components.WebAssembly.Authentication --prerelease
 
 // server
-dotnet new webapi --minimalapi
+dotnet new webapi -minimal
 dotnet add package Microsoft.AspNetCore.Components.WebAssembly.Server --prerelease
+
 
 // program.cs
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 app.MapFallbackToFile("index.html");
 ```
+
+
+## 인증
+https://auth0.com/blog/securing-blazor-webassembly-apps/#Adding-Support-for-Authentication
+
