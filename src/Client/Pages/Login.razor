@@ -1,0 +1,15 @@
+@page "/login"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<button @onclick="LoginAsync">Login with Auth0</button>
+
+@code {
+    private async Task LoginAsync()
+    {
+        var response = await Http.GetAsync("/api/auth/login");
+        var loginUrl = await response.Content.ReadAsStringAsync();
+        await JSRuntime.InvokeVoidAsync("open", loginUrl, "_self");
+    }
+}

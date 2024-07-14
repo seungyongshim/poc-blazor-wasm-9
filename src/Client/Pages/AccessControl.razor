@@ -5,17 +5,21 @@
 
 <AuthorizeView>
     <Authorized>
-        Hello, @context.User?.Identity?.Name
-        <a href="#" @onclick="BeginSignOut">Log out</a>
+        <button @onclick="Logout">Logout</button>
     </Authorized>
     <NotAuthorized>
-        <a href="authentication/login">Log in</a>
+        <NavLink href="login">Login</NavLink>
     </NotAuthorized>
 </AuthorizeView>
 
 @code {
-    private async Task BeginSignOut(MouseEventArgs args)
+    [Inject] HttpClient Http { get; set; } = null!;
+    [Inject] CustomAuthenticationStateProvider AuthProvider { get; set; } = null!;
+
+    private async Task Logout()
     {
-        Navigation.NavigateToLogout("authentication/logout");
+        await Http.GetAsync("/api/auth/logout");
+        AuthProvider.NotifyUserLogout();
+        Navigation.NavigateTo("/");
     }
 }
