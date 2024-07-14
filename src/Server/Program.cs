@@ -1,49 +1,27 @@
-using System.IdentityModel.Tokens.Jwt;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
+// https://auth0.com/blog/backend-for-frontend-pattern-with-auth0-and-dotnet/
+// https://github.com/DuendeSoftware/Samples/tree/main/IdentityServer/v5/BFF/BlazorWasm
+// https://guidnew.com/en/blog/secure-a-blazor-webassembly-application-with-cookie-authentication/
 
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddAuthentication().AddJwtBearer(options =>
+builder.Services.AddAuthentication(options =>
 {
-    options.Authority = "https://dev-5ureawdsacbjt2tc.us.auth0.com";
-    options.Audience = "https://dev-5ureawdsacbjt2tc.us.auth0.com/api/v2/";
-    options.TokenValidationParameters = new TokenValidationParameters
+    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+})
+    .AddCookie(o =>
     {
-        ValidAudience = "https://dev-5ureawdsacbjt2tc.us.auth0.com/api/v2/",
-        ValidIssuer = "https://dev-5ureawdsacbjt2tc.us.auth0.com"
-    };
-
-
-    options.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
-        {
-            // 요청 헤더에서 토큰을 수신하여 로그로 출력
-            var token = context.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-            Console.WriteLine($"Received Token: {token}");
-            return Task.CompletedTask;
-        },
-        OnAuthenticationFailed = context =>
-        {
-            Console.WriteLine($"Authentication Failed: {context.Exception.Message}");
-            return Task.CompletedTask;
-        },
-        OnTokenValidated = context =>
-        {
-            var token = context.SecurityToken as JwtSecurityToken;
-            if (token != null)
-            {
-                Console.WriteLine($"Token Validated: {token}");
-                Console.WriteLine($"Issuer: {token.Issuer}");
-                Console.WriteLine($"Audience: {string.Join(", ", token.Audiences)}");
-                Console.WriteLine($"Claims: {string.Join(", ", token.Claims.Select(c => $"{c.Type}: {c.Value}"))}");
-            }
-            return Task.CompletedTask;
-        }
-    };
-});
+        o.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        o.Cookie.SameSite = SameSiteMode.Strict;
+        o.Cookie.HttpOnly = true;
+    })
+    .AddOpenIdConnect("Auth0", options => ConfigureOpenIdConnect(options, builder.Configuration));
+  
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
@@ -55,17 +33,20 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.MapGet("/login", () => Results.Challenge(new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = "/" }));
 
 app.MapGet("/weatherforecast", (HttpContext context) =>
 {
+    var summaries = new[]
+    {
+        "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
+    };
+
     var forecast =  Enumerable.Range(1, 5).Select(index =>
         new WeatherForecast
         (
@@ -79,8 +60,8 @@ app.MapGet("/weatherforecast", (HttpContext context) =>
 .RequireAuthorization()
 .WithName("GetWeatherForecast");
 
-app.UseBlazorFrameworkFiles();
-app.UseStaticFiles();
+//app.UseBlazorFrameworkFiles();
+//app.UseStaticFiles();
 
 
 app.MapFallbackToFile("index.html");
@@ -88,7 +69,62 @@ app.MapFallbackToFile("index.html");
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+static void ConfigureOpenIdConnect(OpenIdConnectOptions options, ConfigurationManager Configuration)
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    // Set the authority to your Auth0 domain
+    options.Authority = $"https://{Configuration["Auth0:Domain"]}";
+
+    // Configure the Auth0 Client ID and Client Secret
+    options.ClientId = Configuration["Auth0:ClientId"];
+    options.ClientSecret = Configuration["Auth0:ClientSecret"];
+
+    // Set response type to code
+    options.ResponseType = OpenIdConnectResponseType.CodeIdToken;
+
+    options.ResponseMode = OpenIdConnectResponseMode.FormPost;
+
+    // Configure the scope
+    options.Scope.Clear();
+    options.Scope.Add("openid");
+    options.Scope.Add("offline_access");
+    options.Scope.Add("read:weather");
+
+    // Set the callback path, so Auth0 will call back to http://localhost:3000/callback
+    // Also ensure that you have added the URL as an Allowed Callback URL in your Auth0 dashboard
+    options.CallbackPath = new PathString("/callback");
+
+    // Configure the Claims Issuer to be Auth0
+    options.ClaimsIssuer = "Auth0";
+
+    // This saves the tokens in the session cookie
+    options.SaveTokens = true;
+
+    options.Events = new OpenIdConnectEvents
+    {
+        // handle the logout redirection
+        OnRedirectToIdentityProviderForSignOut = (context) =>
+        {
+            var logoutUri = $"https://{Configuration["Auth0:Domain"]}/v2/logout?client_id={Configuration["Auth0:ClientId"]}";
+
+            var postLogoutUri = context.Properties.RedirectUri;
+            if (!string.IsNullOrEmpty(postLogoutUri))
+            {
+                if (postLogoutUri.StartsWith("/"))
+                {
+                    // transform to absolute
+                    var request = context.Request;
+                    postLogoutUri = request.Scheme + "://" + request.Host + request.PathBase + postLogoutUri;
+                }
+                logoutUri += $"&returnTo={Uri.EscapeDataString(postLogoutUri)}";
+            }
+            context.Response.Redirect(logoutUri);
+            context.HandleResponse();
+
+            return Task.CompletedTask;
+        },
+        OnRedirectToIdentityProvider = context => {
+            context.ProtocolMessage.SetParameter("audience", Configuration["Auth0:ApiAudience"]);
+            return Task.CompletedTask;
+        }
+    };
 }
