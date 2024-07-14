@@ -26,3 +26,7 @@ https://auth0.com/blog/securing-blazor-webassembly-apps/#Adding-Support-for-Auth
 
 ## 로그인 폼 
 https://www.prowaretech.com/articles/current/blazor/wasm/login-form#!
+
+
+## 해볼만한 샘플
+* https://github.com/dotnet/blazor-samples/tree/main/8.0/BlazorWebAppOidcBff

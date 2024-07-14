@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Client;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
+using Blazored.LocalStorage;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -20,5 +21,7 @@ builder.Services.AddOidcAuthentication(options =>
     options.ProviderOptions.ClientId = "p4Rubx3E4mzRwwuePXEey5n93t697g6z";
     options.ProviderOptions.ResponseType = "code";
 });
+
+builder.Services.AddBlazoredLocalStorage();
 
 await builder.Build().RunAsync();
