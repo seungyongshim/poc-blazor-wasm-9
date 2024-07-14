@@ -51,6 +51,7 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    app.UseWebAssemblyDebugging();
     app.MapOpenApi();
 }
 
@@ -80,8 +81,6 @@ app.MapGet("/weatherforecast", (HttpContext context) =>
 
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
-
-
 app.MapFallbackToFile("index.html");
 
 

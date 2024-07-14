@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Client;
 using Microsoft.AspNetCore.Components.WebAssembly.Authentication;
+using Microsoft.AspNetCore.Components.Authorization;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -26,5 +27,9 @@ builder.Services.AddOidcAuthentication(options =>
     options.ProviderOptions.DefaultScopes.Add("profile");
     options.ProviderOptions.DefaultScopes.Add("email");
 });
+
+builder.Services.AddAuthorizationCore();
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
+
 
 await builder.Build().RunAsync();
